@@ -1467,21 +1467,9 @@ curl -i "http://localhost:3000/api/tareas/buscar"
 
 Pistas: crear la función en el servicio y en el controlador. Declarar la ruta **antes** de `/:id`.
 
-### Actividad 3: nuevo router
+### Actividad 3: Conexión a base de datos
 
-Crear un segundo recurso `usuarios` con su propio router en `src/routes/usuarios.routes.js`, con las rutas:
-
-- `GET /api/usuarios`: lista los usuarios (arreglo en memoria con al menos dos usuarios con `id` y `nombre`).
-- `POST /api/usuarios`: crea un usuario y responde 201. Si falta `nombre`, responde 400.
-
-Montarlo en `app.js` con `app.use('/api/usuarios', usuariosRoutes)`.
-
-Prueba:
-
-```bash
-curl http://localhost:3000/api/usuarios
-curl -i -X POST http://localhost:3000/api/usuarios -H "Content-Type: application/json" -d '{"nombre":"Rafael"}'
-```
+Crear una conexion con la base de datos de su preferencia para que los datos en luhar de trabajarse en memoria se trabajen en una base de datos
 
 ---
 
