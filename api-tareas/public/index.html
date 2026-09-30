@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestor de tareas - Express</title>
+  <style>
+    :root {
+      --fondo: #f3f4f6;
+      --tarjeta: #ffffff;
+      --texto: #1f2937;
+      --tenue: #6b7280;
+      --borde: #e5e7eb;
+      --primario: #2563eb;
+      --alta: #dc2626;
+      --media: #d97706;
+      --baja: #16a34a;
+      --exito: #16a34a;
+      --error: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--fondo);
+      color: var(--texto);
+    }
+    header {
+      background: #111827;
+      color: #fff;
+      padding: 24px 16px;
+    }
+    header div, main { max-width: 900px; margin: 0 auto; }
+    header h1 { margin: 0 0 4px; font-size: 1.6rem; }
+    header p { margin: 0; color: #9ca3af; font-size: .9rem; }
+    main { padding: 24px 16px 48px; }
+    .panel {
+      background: var(--tarjeta);
+      border: 1px solid var(--borde);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .panel h2 { margin: 0 0 12px; font-size: 1rem; }
+
+    /* Resumen */
+    .resumen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+    .contador {
+      background: var(--tarjeta);
+      border: 1px solid var(--borde);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .contador span { display: block; color: var(--tenue); font-size: .8rem; }
+    .contador strong { font-size: 1.8rem; }
+
+    /* Formularios */
+    .fila { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    input, select, button {
+      font: inherit;
+      padding: 8px 12px;
+      border: 1px solid var(--borde);
+      border-radius: 6px;
+      background: #fff;
+    }
+    input[type="text"] { flex: 1; min-width: 200px; }
+    button { cursor: pointer; }
+    .btn-primario { background: var(--primario); border-color: var(--primario); color: #fff; font-weight: 600; }
+    .btn-exito { color: var(--exito); border-color: var(--exito); }
+    .btn-peligro { color: var(--error); border-color: var(--error); }
+    button:hover { filter: brightness(.95); }
+    label { font-size: .85rem; color: var(--tenue); }
+
+    /* Lista de tareas */
+    .tareas { display: grid; gap: 10px; }
+    .tarea {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--tarjeta);
+      border: 1px solid var(--borde);
+      border-left: 6px solid var(--media);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .tarea.alta { border-left-color: var(--alta); }
+    .tarea.media { border-left-color: var(--media); }
+    .tarea.baja { border-left-color: var(--baja); }
+    .tarea .info { flex: 1; }
+    .tarea .titulo { font-weight: 600; }
+    .tarea.completada .titulo { text-decoration: line-through; color: var(--tenue); }
+    .tarea .detalle { font-size: .8rem; color: var(--tenue); margin-top: 2px; }
+    .etiqueta {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 999px;
+      font-size: .75rem;
+      color: #fff;
+      margin-right: 6px;
+    }
+    .etiqueta.alta { background: var(--alta); }
+    .etiqueta.media { background: var(--media); }
+    .etiqueta.baja { background: var(--baja); }
+    .acciones { display: flex; gap: 6px; }
+    .acciones button { padding: 6px 10px; font-size: .85rem; }
+    .vacio { text-align: center; color: var(--tenue); padding: 24px; }
+
+    /* Mensajes */
+    .mensaje {
+      display: none;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: .9rem;
+    }
+    .mensaje.exito { display: block; background: #dcfce7; color: #166534; }
+    .mensaje.error { display: block; background: #fee2e2; color: #991b1b; }
+
+    /* Registro de peticiones */
+    .registro {
+      background: #111827;
+      color: #d1d5db;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: .8rem;
+      border-radius: 8px;
+      padding: 12px;
+      max-height: 180px;
+      overflow-y: auto;
+      margin: 0;
+      list-style: none;
+    }
+    .registro li { padding: 2px 0; }
+    .registro .ok { color: #4ade80; }
+    .registro .fallo { color: #f87171; }
+
+    @media (max-width: 600px) {
+      .resumen { grid-template-columns: 1fr; }
+      .tarea { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Gestor de tareas</h1>
+      <p>Página entregada por express.static('public') que consume la API REST con fetch</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- Resumen: GET /api/tareas/resumen -->
+    <section class="resumen">
+      <div class="contador"><span>Total</span><strong id="total">0</strong></div>
+      <div class="contador"><span>Pendientes</span><strong id="pendientes">0</strong></div>
+      <div class="contador"><span>Completadas</span><strong id="completadas">0</strong></div>
+    </section>
+
+    <div id="mensaje" class="mensaje"></div>
+
+    <!-- Crear: POST /api/tareas -->
+    <section class="panel">
+      <h2>Nueva tarea</h2>
+      <form id="formulario" class="fila">
+        <input type="text" id="titulo" placeholder="Título de la tarea">
+        <select id="prioridad">
+          <option value="baja">Prioridad baja</option>
+          <option value="media" selected>Prioridad media</option>
+          <option value="alta">Prioridad alta</option>
+        </select>
+        <button type="submit" class="btn-primario">Agregar</button>
+      </form>
+    </section>
+
+    <!-- Filtros: GET /api/tareas?completada=...&prioridad=... -->
+    <section class="panel">
+      <h2>Filtros y configuración</h2>
+      <div class="fila">
+        <label for="filtro-estado">Estado</label>
+        <select id="filtro-estado">
+          <option value="">Todas</option>
+          <option value="false">Pendientes</option>
+          <option value="true">Completadas</option>
+        </select>
+        <label for="filtro-prioridad">Prioridad</label>
+        <select id="filtro-prioridad">
+          <option value="">Todas</option>
+          <option value="alta">Alta</option>
+          <option value="media">Media</option>
+          <option value="baja">Baja</option>
+        </select>
+        <label for="api-key">API key (para eliminar)</label>
+        <input type="text" id="api-key" value="express2026" style="max-width: 150px">
+      </div>
+    </section>
+
+    <!-- Lista de tareas -->
+    <section class="tareas" id="lista"></section>
+
+    <!-- Registro de peticiones hechas a la API -->
+    <section class="panel" style="margin-top: 16px">
+      <h2>Peticiones realizadas a la API</h2>
+      <ul class="registro" id="registro"></ul>
+    </section>
+  </main>
+
+  <script>
+    const API = '/api/tareas';
+
+    // Realiza la petición, la anota en el registro y lanza un error si la API responde con error
+    async function peticion(metodo, url, body, encabezados = {}) {
+      const opciones = { method: metodo, headers: { ...encabezados } };
+      if (body) {
+        opciones.headers['Content-Type'] = 'application/json';
+        opciones.body = JSON.stringify(body);
+      }
+
+      const respuesta = await fetch(url, opciones);
+      anotar(metodo, url, respuesta.status, respuesta.ok);
+
+      if (respuesta.status === 204) return null;
+      const datos = await respuesta.json();
+      if (!respuesta.ok) throw new Error(`${respuesta.status}: ${datos.error}`);
+      return datos;
+    }
+
+    function anotar(metodo, url, status, ok) {
+      const li = document.createElement('li');
+      const hora = new Date().toLocaleTimeString();
+      li.textContent = `[${hora}] ${metodo} ${url} -> `;
+      const codigo = document.createElement('span');
+      codigo.className = ok ? 'ok' : 'fallo';
+      codigo.textContent = status;
+      li.append(codigo);
+      document.getElementById('registro').prepend(li);
+    }
+
+    function mostrarMensaje(texto, tipo) {
+      const caja = document.getElementById('mensaje');
+      caja.textContent = texto;
+      caja.className = `mensaje ${tipo}`;
+      clearTimeout(mostrarMensaje.temporizador);
+      mostrarMensaje.temporizador = setTimeout(() => (caja.className = 'mensaje'), 4000);
+    }
+
+    async function cargarResumen() {
+      const resumen = await peticion('GET', `${API}/resumen`);
+      document.getElementById('total').textContent = resumen.total;
+      document.getElementById('pendientes').textContent = resumen.pendientes;
+      document.getElementById('completadas').textContent = resumen.completadas;
+    }
+
+    async function cargarTareas() {
+      const parametros = new URLSearchParams();
+      const estado = document.getElementById('filtro-estado').value;
+      const prioridad = document.getElementById('filtro-prioridad').value;
+      if (estado) parametros.set('completada', estado);
+      if (prioridad) parametros.set('prioridad', prioridad);
+
+      const url = parametros.toString() ? `${API}?${parametros}` : API;
+      const tareas = await peticion('GET', url);
+      pintarTareas(tareas);
+    }
+
+    function pintarTareas(tareas) {
+      const lista = document.getElementById('lista');
+      lista.innerHTML = '';
+
+      if (tareas.length === 0) {
+        lista.innerHTML = '<div class="vacio">No hay tareas con estos filtros.</div>';
+        return;
+      }
+
+      for (const tarea of tareas) {
+        const tarjeta = document.createElement('article');
+        tarjeta.className = `tarea ${tarea.prioridad}${tarea.completada ? ' completada' : ''}`;
+
+        const info = document.createElement('div');
+        info.className = 'info';
+        const titulo = document.createElement('div');
+        titulo.className = 'titulo';
+        titulo.textContent = tarea.titulo;
+        const detalle = document.createElement('div');
+        detalle.className = 'detalle';
+        detalle.innerHTML = `<span class="etiqueta ${tarea.prioridad}">${tarea.prioridad}</span>` +
+          `id ${tarea.id} - ${tarea.completada ? 'completada' : 'pendiente'}`;
+        info.append(titulo, detalle);
+
+        const acciones = document.createElement('div');
+        acciones.className = 'acciones';
+        if (!tarea.completada) {
+          acciones.append(boton('Completar', 'btn-exito', () => completar(tarea.id)));
+        }
+        acciones.append(boton('Editar', '', () => editar(tarea)));
+        acciones.append(boton('Eliminar', 'btn-peligro', () => eliminar(tarea.id)));
+
+        tarjeta.append(info, acciones);
+        lista.append(tarjeta);
+      }
+    }
+
+    function boton(texto, clase, accion) {
+      const b = document.createElement('button');
+      b.textContent = texto;
+      b.className = clase;
+      b.addEventListener('click', accion);
+      return b;
+    }
+
+    async function refrescar() {
+      try {
+        await Promise.all([cargarResumen(), cargarTareas()]);
+      } catch (error) {
+        mostrarMensaje(error.message, 'error');
+      }
+    }
+
+    // POST /api/tareas
+    document.getElementById('formulario').addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      try {
+        const tarea = await peticion('POST', API, {
+          titulo: document.getElementById('titulo').value.trim(),
+          prioridad: document.getElementById('prioridad').value,
+        });
+        document.getElementById('titulo').value = '';
+        mostrarMensaje(`Tarea ${tarea.id} creada correctamente`, 'exito');
+        refrescar();
+      } catch (error) {
+        mostrarMensaje(error.message, 'error');
+      }
+    });
+
+    // PATCH /api/tareas/:id/completar
+    async function completar(id) {
+      try {
+        await peticion('PATCH', `${API}/${id}/completar`);
+        mostrarMensaje(`Tarea ${id} completada`, 'exito');
+        refrescar();
+      } catch (error) {
+        mostrarMensaje(error.message, 'error');
+      }
+    }
+
+    // PUT /api/tareas/:id
+    async function editar(tarea) {
+      const nuevoTitulo = prompt('Nuevo título de la tarea:', tarea.titulo);
+      if (nuevoTitulo === null) return;
+      try {
+        await peticion('PUT', `${API}/${tarea.id}`, {
+          titulo: nuevoTitulo.trim(),
+          prioridad: tarea.prioridad,
+          completada: tarea.completada,
+        });
+        mostrarMensaje(`Tarea ${tarea.id} actualizada`, 'exito');
+        refrescar();
+      } catch (error) {
+        mostrarMensaje(error.message, 'error');
+      }
+    }
+
+    // DELETE /api/tareas/:id (requiere el encabezado x-api-key)
+    async function eliminar(id) {
+      if (!confirm(`¿Eliminar la tarea ${id}?`)) return;
+      const llave = document.getElementById('api-key').value.trim();
+      const encabezados = llave ? { 'x-api-key': llave } : {};
+      try {
+        await peticion('DELETE', `${API}/${id}`, null, encabezados);
+        mostrarMensaje(`Tarea ${id} eliminada`, 'exito');
+        refrescar();
+      } catch (error) {
+        mostrarMensaje(error.message, 'error');
+      }
+    }
+
+    document.getElementById('filtro-estado').addEventListener('change', refrescar);
+    document.getElementById('filtro-prioridad').addEventListener('change', refrescar);
+
+    refrescar();
+  </script>
+</body>
+</html>
